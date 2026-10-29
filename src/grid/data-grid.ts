@@ -15,6 +15,8 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
   const [pageSize] = useState(props.pageSizes?.[0] ?? DEFAULT_PAGE_SIZE);
   const [filter] = useState<FilterState>(NO_FILTER);
   const [active, setActive] = useState<GridPosition>({ row: 1, col: 0 });
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [openedId, setOpenedId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
   // Focus moves only after keyboard navigation, never on first render or on unrelated updates.
   const focusRequested = useRef(false);
@@ -44,8 +46,34 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
     setPage(clamped);
   };
 
+  const label = (item: T): string => (columns[0] ? cellText(item, columns[0]) : getRowId(item));
+
+  /** Enter / click: the row becomes the current one and the consumer is notified. */
+  const open = (item: T): void => {
+    setOpenedId(getRowId(item));
+    setAnnouncement(`Opened ${label(item)}`);
+    props.onRowSelect?.(item);
+  };
+
+  /** Space / Ctrl+click: toggles the row in the multi-selection. */
+  const toggle = (item: T): void => {
+    const rowId = getRowId(item);
+    const next = new Set(selected);
+    const added = !next.delete(rowId);
+    if (added) next.add(rowId);
+    setSelected(next);
+    setAnnouncement(`${label(item)} ${added ? 'selected' : 'deselected'}. ${next.size} selected.`);
+  };
+
   const onKeyDown = (event: Event): void => {
     if (!(event instanceof KeyboardEvent)) return;
+    const item = position.row > 0 ? result.rows[position.row - 1] : undefined;
+    if (item !== undefined && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault(); // Space would scroll the page
+      if (event.key === 'Enter') open(item);
+      else toggle(item);
+      return;
+    }
     const outcome = navigate(position, event.key, { ctrl: event.ctrlKey || event.metaKey }, bounds);
     if (outcome.type === 'NONE') return;
     event.preventDefault(); // arrows and paging must not scroll the page
@@ -86,7 +114,17 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
 
   const bodyRows = result.rows.map((item, index) => {
     const row = index + 1;
-    return createElement('tr', { key: getRowId(item), role: 'row', 'aria-rowindex': result.start + index + 1 },
+    const rowId = getRowId(item);
+    const isSelected = selected.has(rowId);
+    const isOpen = openedId === rowId;
+    return createElement('tr', {
+      key: rowId,
+      role: 'row',
+      'aria-rowindex': result.start + index + 1,
+      'aria-selected': String(isSelected),
+      'aria-current': isOpen ? 'true' : undefined,
+      className: [isSelected && 'is-selected', isOpen && 'is-open'].filter(Boolean).join(' ') || undefined,
+    },
       columns.map((column, col) =>
         createElement('td', {
           key: column.accessorKey,
@@ -94,7 +132,11 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
           role: 'gridcell',
           tabIndex: roving(row, col),
           className: column.align === 'end' ? 'num' : undefined,
-          onClick: () => moveTo({ row, col }, false),
+          onClick: (event: Event) => {
+            moveTo({ row, col }, false);
+            if (event instanceof MouseEvent && (event.ctrlKey || event.metaKey)) toggle(item);
+            else open(item);
+          },
         }, cellText(item, column)),
       ),
     );
@@ -109,6 +151,7 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
         className: 'grid',
         'aria-labelledby': `${id}-caption`,
         'aria-rowcount': result.total + 1,
+        'aria-multiselectable': 'true',
         'aria-describedby': `${id}-help`,
         onKeyDown,
       },
@@ -118,6 +161,6 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
       ),
     ),
     createElement('p', { id: `${id}-help`, className: 'grid-help' },
-      'Use arrow keys to move between cells, Home and End for the row start and end, Ctrl+Home and Ctrl+End for the first and last cell, Page Up and Page Down to change page.'),
+      'Use arrow keys to move between cells, Home and End for the row start and end, Ctrl+Home and Ctrl+End for the first and last cell, Page Up and Page Down to change page. Enter opens a row, Space selects or deselects it.'),
   ];
 }

@@ -32,7 +32,7 @@ supports full keyboard navigation (Arrows, Enter selects, Space toggles), and sc
 - [x] Task 1.5: Implement filter → sort → paginate pipeline
 - [x] Task 1.6: Implement keyboard navigation reducer
 - [x] Task 1.7: Render accessible grid with roving tabindex
-- [ ] Task 1.8: Add Enter / Space row selection
+- [x] Task 1.8: Add Enter / Space row selection
 - [ ] Task 1.9: Add toolbar and pagination
 - [ ] Task 1.10: Assemble employee directory app
 - [ ] Task 1.11: axe-core audit
