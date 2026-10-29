@@ -25,7 +25,7 @@ supports full keyboard navigation (Arrows, Enter selects, Space toggles), and sc
 ## Checklist
 
 - [x] Task 1.0: Write `project-rules.md` and `TASK_DECOMPOSITION.md`
-- [ ] Task 1.1: Import engine from Exercise 3
+- [x] Task 1.1: Import engine from Exercise 3
 - [ ] Task 1.2: Implement keyed reconciliation
 - [ ] Task 1.3: Implement `useEffect`
 - [ ] Task 1.4: Define data grid contracts
