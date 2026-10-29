@@ -76,12 +76,24 @@ export function renderApp(Component: RootComponent, container: Element, options:
   };
 
   setRenderer(render);
-  render();
+  try {
+    render();
+  } catch (error) {
+    // A failed first render must not leave the engine thinking an app is mounted.
+    setRenderer(() => {});
+    teardownEvents();
+    resetStateStore();
+    mounted = false;
+    throw error;
+  }
 
   return {
     rerender: render,
     getTree: () => tree,
     unmount: () => {
+      // Stop rendering first: cleanups (closing an AudioContext, cancelling a queue) may emit
+      // events that call setState, and a render now would run effects against half-torn-down state.
+      setRenderer(() => {});
       disposeEffects();
       teardownEvents();
       container.replaceChildren();

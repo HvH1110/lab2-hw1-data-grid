@@ -116,3 +116,41 @@ describe('useEffect', () => {
     expect(() => setOn(false)).toThrow(/Rules of Hooks violated/);
   });
 });
+
+describe('useEffect: unmount', () => {
+  it('state updates fired by cleanups during unmount do not re-render (no effects on torn-down state)', () => {
+    const render = vi.fn();
+    const effect = vi.fn();
+    let setTick!: StateSetter<number>;
+    app = renderApp(() => {
+      render();
+      const [tick, set] = useState(0);
+      setTick = set;
+      useEffect(() => () => setTick(tick + 1), []); // cleanup that emits a state change
+      useEffect(effect, [tick]);
+      return createElement('p', null, tick);
+    }, root);
+    render.mockClear();
+    effect.mockClear();
+    app.unmount();
+    app = null;
+    expect(render).not.toHaveBeenCalled();
+    expect(effect).not.toHaveBeenCalled();
+  });
+});
+
+describe('useEffect: effects that set state', () => {
+  it('an effect that sets a new value on mount runs exactly once (deps recorded before it runs)', () => {
+    const effect = vi.fn();
+    app = renderApp(() => {
+      const [items, setItems] = useState<readonly number[]>([]);
+      useEffect(() => {
+        effect();
+        setItems([1, 2, 3]); // a *new* array every time: would loop forever if the effect re-ran
+      }, []);
+      return createElement('p', null, items.length);
+    }, root);
+    expect(effect).toHaveBeenCalledTimes(1);
+    expect(root.textContent).toBe('3');
+  });
+});
