@@ -29,7 +29,7 @@ supports full keyboard navigation (Arrows, Enter selects, Space toggles), and sc
 - [x] Task 1.2: Implement keyed reconciliation
 - [x] Task 1.3: Implement `useEffect`
 - [x] Task 1.4: Define data grid contracts
-- [ ] Task 1.5: Implement filter → sort → paginate pipeline
+- [x] Task 1.5: Implement filter → sort → paginate pipeline
 - [ ] Task 1.6: Implement keyboard navigation reducer
 - [ ] Task 1.7: Render accessible grid with roving tabindex
 - [ ] Task 1.8: Add Enter / Space row selection
