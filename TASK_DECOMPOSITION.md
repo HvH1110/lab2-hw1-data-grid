@@ -30,7 +30,7 @@ supports full keyboard navigation (Arrows, Enter selects, Space toggles), and sc
 - [x] Task 1.3: Implement `useEffect`
 - [x] Task 1.4: Define data grid contracts
 - [x] Task 1.5: Implement filter → sort → paginate pipeline
-- [ ] Task 1.6: Implement keyboard navigation reducer
+- [x] Task 1.6: Implement keyboard navigation reducer
 - [ ] Task 1.7: Render accessible grid with roving tabindex
 - [ ] Task 1.8: Add Enter / Space row selection
 - [ ] Task 1.9: Add toolbar and pagination
