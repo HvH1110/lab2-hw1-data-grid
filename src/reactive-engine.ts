@@ -3,6 +3,7 @@ import { patch, resolveTree, type HostVNode } from './reconcile';
 import { mount } from './render-to-dom';
 import { abortRender, commitRender, resetCursor, resetStateStore, setRenderer } from './state-store';
 import type { RootComponent } from './types';
+import { discardPendingEffects, disposeEffects, flushEffects } from './use-effect';
 
 export interface RenderAppOptions {
   /** Called after every committed render, e.g. to run the DOM parity audit. */
@@ -48,6 +49,7 @@ export function renderApp(Component: RootComponent, container: Element, options:
       commitRender();
     } catch (error) {
       abortRender();
+      discardPendingEffects();
       throw error;
     }
 
@@ -61,6 +63,7 @@ export function renderApp(Component: RootComponent, container: Element, options:
       }
     } catch (error) {
       tree = null; // DOM may be half-patched: the next render re-mounts from scratch
+      discardPendingEffects();
       throw error;
     }
 
@@ -68,6 +71,8 @@ export function renderApp(Component: RootComponent, container: Element, options:
     // Patching keeps focused elements alive; this only matters when a node had to be replaced.
     if (!container.contains(container.ownerDocument.activeElement)) restoreFocus(container, focusedId);
     options.onCommit?.(next, container);
+    // After the DOM is final: effects may read layout, move focus, or set state (re-render).
+    flushEffects();
   };
 
   setRenderer(render);
@@ -77,6 +82,7 @@ export function renderApp(Component: RootComponent, container: Element, options:
     rerender: render,
     getTree: () => tree,
     unmount: () => {
+      disposeEffects();
       teardownEvents();
       container.replaceChildren();
       resetStateStore();
