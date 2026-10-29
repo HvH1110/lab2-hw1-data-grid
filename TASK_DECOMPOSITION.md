@@ -36,4 +36,4 @@ supports full keyboard navigation (Arrows, Enter selects, Space toggles), and sc
 - [x] Task 1.9: Add toolbar and pagination
 - [x] Task 1.10: Assemble employee directory app
 - [x] Task 1.11: axe-core audit
-- [ ] Task 1.12: README + Lighthouse report
+- [x] Task 1.12: README + Lighthouse report
