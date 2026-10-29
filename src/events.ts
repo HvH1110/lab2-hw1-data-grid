@@ -23,6 +23,11 @@ export function registerHandler(element: Element, type: DelegatedEventType, hand
   handlerRegistry.set(element, handlers);
 }
 
+export function unregisterHandler(element: Element, type: DelegatedEventType): void {
+  const handlers = handlerRegistry.get(element);
+  if (handlers !== undefined) delete handlers[type];
+}
+
 export function getHandler(element: Element, type: DelegatedEventType): EventHandler | undefined {
   return handlerRegistry.get(element)?.[type];
 }

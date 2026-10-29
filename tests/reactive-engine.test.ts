@@ -113,3 +113,25 @@ describe('renderApp', () => {
     expect(text('#inc')).toBe('1');
   });
 });
+
+describe('renderApp with reconciliation', () => {
+  it('patches in place: the same button element survives re-renders', () => {
+    app = renderApp(Counter, root);
+    const button = root.querySelector('#inc');
+    click('#inc');
+    click('#inc');
+    expect(root.querySelector('#inc')).toBe(button);
+    expect(text('#count')).toBe('2');
+  });
+
+  it('keeps focus without restoring it, because the focused node is never replaced', () => {
+    app = renderApp(Counter, root);
+    const button = root.querySelector<HTMLElement>('#inc');
+    button?.focus();
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+    click('#inc');
+    expect(document.activeElement).toBe(button);
+    expect(focus).not.toHaveBeenCalled();
+    focus.mockRestore();
+  });
+});
