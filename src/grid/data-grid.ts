@@ -73,16 +73,25 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
     setAnnouncement(`${label(item)} ${added ? 'selected' : 'deselected'}. ${next.size} selected.`);
   };
 
+  /** The cell the key was pressed in. Focus can reach a cell without updating `active`
+   * (screen-reader virtual cursor, programmatic focus), so the event target wins over state. */
+  const positionOf = (target: EventTarget | null): GridPosition => {
+    const cell = target instanceof Element ? target.closest('[data-row][data-col]') : null;
+    if (cell === null) return position;
+    return clampPosition({ row: Number(cell.getAttribute('data-row')), col: Number(cell.getAttribute('data-col')) }, bounds);
+  };
+
   const onKeyDown = (event: Event): void => {
     if (!(event instanceof KeyboardEvent)) return;
-    const item = position.row > 0 ? result.rows[position.row - 1] : undefined;
+    const from = positionOf(event.target);
+    const item = from.row > 0 ? result.rows[from.row - 1] : undefined;
     if (item !== undefined && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault(); // Space would scroll the page
       if (event.key === 'Enter') open(item);
       else toggle(item);
       return;
     }
-    const outcome = navigate(position, event.key, { ctrl: event.ctrlKey || event.metaKey }, bounds);
+    const outcome = navigate(from, event.key, { ctrl: event.ctrlKey || event.metaKey }, bounds);
     if (outcome.type === 'NONE') return;
     event.preventDefault(); // arrows and paging must not scroll the page
     if (outcome.type === 'MOVE') moveTo(outcome.position, true);
@@ -103,11 +112,13 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
       const sorted = sort?.key === column.accessorKey ? sort.direction : undefined;
       const common = { key: column.accessorKey, role: 'columnheader', scope: 'col', 'aria-sort': sorted, className: column.align === 'end' ? 'num' : undefined };
       if (!column.sortable) {
-        return createElement('th', { ...common, id: cellId(0, col), tabIndex: roving(0, col), onClick: () => moveTo({ row: 0, col }, false) }, column.header);
+        return createElement('th', { ...common, id: cellId(0, col), 'data-row': 0, 'data-col': col, tabIndex: roving(0, col), onClick: () => moveTo({ row: 0, col }, false) }, column.header);
       }
       return createElement('th', common,
         createElement('button', {
           id: cellId(0, col),
+          'data-row': 0,
+          'data-col': col,
           type: 'button',
           className: 'sort',
           tabIndex: roving(0, col),
@@ -137,6 +148,8 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
         createElement('td', {
           key: column.accessorKey,
           id: cellId(row, col),
+          'data-row': row,
+          'data-col': col,
           role: 'gridcell',
           tabIndex: roving(row, col),
           className: column.align === 'end' ? 'num' : undefined,

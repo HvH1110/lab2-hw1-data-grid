@@ -78,3 +78,15 @@ describe('DataGrid: selection', () => {
     expect(opened).toHaveLength(1);
   });
 });
+
+describe('DataGrid: focus reached without the grid knowing', () => {
+  it('acts on the cell that has focus, not on the last remembered position', () => {
+    const opened: string[] = [];
+    mountGrid({ onRowSelect: (item) => opened.push(item.id) });
+    $('#g-r5-c1').focus(); // e.g. screen-reader virtual cursor: no click, no arrow key
+    key('Enter');
+    expect(opened).toEqual(['u5']);
+    key('ArrowDown');
+    expect(document.activeElement?.id).toBe('g-r6-c1');
+  });
+});
