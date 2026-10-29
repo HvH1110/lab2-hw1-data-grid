@@ -4,7 +4,7 @@ import type { Row } from './grid-fixtures';
 afterEach(unmountGrid);
 
 const row = (n: number): HTMLElement => $(`tbody tr:nth-child(${n})`);
-const status = (): string | null => $('[role="status"]').textContent;
+const status = (): string | null => $('#g-status').textContent;
 
 describe('DataGrid: selection', () => {
   let opened: Row[];
@@ -44,7 +44,7 @@ describe('DataGrid: selection', () => {
     key('Enter');
     expect(opened.map((r) => r.id)).toEqual(['u2']);
     expect(row(2).getAttribute('aria-current')).toBe('true');
-    expect(document.body.querySelectorAll('[aria-current]')).toHaveLength(1);
+    expect(document.body.querySelectorAll('tbody [aria-current]')).toHaveLength(1);
     expect(document.activeElement?.id).toBe('g-r2-c0');
     expect(status()).toBe('Opened Person 02');
   });

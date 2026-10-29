@@ -3,7 +3,7 @@ import { clampPosition, navigate } from './navigation';
 import { cellText, nextSort, runPipeline } from './pipeline';
 import type { ColumnDef, DataGridProps, FilterState, GridBounds, GridPosition, SortState } from './types';
 
-const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZES: readonly number[] = [10, 25, 50];
 const NO_FILTER: FilterState = Object.freeze({ query: '', facets: Object.freeze({}) });
 
 /** Grid widget plus its live status. Called like a custom hook: uses hooks, returns sibling nodes. */
@@ -12,8 +12,9 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
 
   const [sort, setSort] = useState<SortState<T> | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(props.pageSizes?.[0] ?? DEFAULT_PAGE_SIZE);
-  const [filter] = useState<FilterState>(NO_FILTER);
+  const pageSizes = props.pageSizes ?? DEFAULT_PAGE_SIZES;
+  const [pageSize, setPageSize] = useState(pageSizes[0] ?? 10);
+  const [filter, setFilter] = useState<FilterState>(NO_FILTER);
   const [active, setActive] = useState<GridPosition>({ row: 1, col: 0 });
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [openedId, setOpenedId] = useState<string | null>(null);
@@ -39,12 +40,19 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
     setActive(next);
   };
 
-  const goToPage = (target: number): void => {
+  /** `focusGrid`: keyboard paging inside the grid keeps focus in the grid; the nav keeps its own focus. */
+  const goToPage = (target: number, focusGrid = true): void => {
     const clamped = Math.min(Math.max(1, target), result.pageCount);
     if (clamped === result.page) return;
-    focusRequested.current = true;
+    focusRequested.current = focusGrid;
     setPage(clamped);
   };
+
+  const updateFilter = (next: FilterState): void => {
+    setFilter(next);
+    setPage(1);
+  };
+  const hasFilters = filter.query !== '' || Object.values(filter.facets).some((value) => value !== '');
 
   const label = (item: T): string => (columns[0] ? cellText(item, columns[0]) : getRowId(item));
 
@@ -142,7 +150,104 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
     );
   });
 
+  const inputValue = (event: Event): string =>
+    event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement ? event.target.value : '';
+
+  const facetColumns = columns.filter((column) => column.filterable);
+  const toolbar = createElement('form', {
+    className: 'grid-toolbar',
+    role: 'search',
+    'aria-label': `Filter ${ariaLabel}`,
+    onSubmit: (event: Event) => event.preventDefault(),
+  },
+    createElement('p', { className: 'field field--grow' },
+      createElement('label', { htmlFor: `${id}-search` }, 'Search'),
+      createElement('input', {
+        id: `${id}-search`, type: 'search', autocomplete: 'off', value: filter.query,
+        placeholder: 'Name, role, city…',
+        onInput: (event: Event) => updateFilter({ ...filter, query: inputValue(event) }),
+      }),
+    ),
+    facetColumns.map((column) => {
+      const options = [...new Set(data.map((row) => String(row[column.accessorKey])))].sort((a, b) => a.localeCompare(b, 'vi'));
+      const selectedValue = filter.facets[column.accessorKey] ?? '';
+      return createElement('p', { key: column.accessorKey, className: 'field' },
+        createElement('label', { htmlFor: `${id}-facet-${column.accessorKey}` }, column.header),
+        createElement('select', {
+          id: `${id}-facet-${column.accessorKey}`, value: selectedValue,
+          onChange: (event: Event) => updateFilter({ ...filter, facets: { ...filter.facets, [column.accessorKey]: inputValue(event) } }),
+        },
+          createElement('option', { key: '', value: '', selected: selectedValue === '' }, 'All'),
+          options.map((option) => createElement('option', { key: option, value: option, selected: selectedValue === option }, option)),
+        ),
+      );
+    }),
+    createElement('p', { className: 'field' },
+      createElement('label', { htmlFor: `${id}-page-size` }, 'Rows per page'),
+      createElement('select', {
+        id: `${id}-page-size`, value: String(pageSize),
+        onChange: (event: Event) => {
+          setPageSize(Number(inputValue(event)));
+          setPage(1);
+        },
+      }, pageSizes.map((size) => createElement('option', { key: String(size), value: String(size), selected: size === pageSize }, String(size)))),
+    ),
+    createElement('p', { className: 'field field--action' },
+      createElement('button', {
+        id: `${id}-clear-filters`, type: 'button', className: 'btn btn--ghost', 'aria-disabled': String(!hasFilters),
+        onClick: () => {
+          if (!hasFilters) return;
+          updateFilter(NO_FILTER);
+          setAnnouncement('Filters cleared');
+        },
+      }, 'Clear filters'),
+    ),
+  );
+
+  const summary = result.total === 0
+    ? `No ${ariaLabel.toLowerCase()} match the current filters.`
+    : `Showing ${result.start}–${result.end} of ${result.total} ${ariaLabel.toLowerCase()}`;
+
+  const pageButton = (target: number, text: string, label: string, disabled: boolean, current = false): VNode =>
+    createElement('button', {
+      key: label,
+      id: `${id}-page-${label.toLowerCase().replace(/\s+/g, '-')}`,
+      type: 'button',
+      className: current ? 'page page--current' : 'page',
+      'aria-label': label,
+      'aria-current': current ? 'page' : undefined,
+      'aria-disabled': disabled ? 'true' : undefined,
+      onClick: () => {
+        if (!disabled) goToPage(target, false);
+      },
+    }, text);
+
+  const pagination = createElement('nav', { className: 'grid-pagination', 'aria-label': `${ariaLabel} pages` },
+    createElement('ul', null,
+      createElement('li', { key: 'prev' }, pageButton(result.page - 1, '‹ Previous', 'Previous page', result.page <= 1)),
+      pageWindow(result.page, result.pageCount).map((entry, i) =>
+        entry === 'gap'
+          ? createElement('li', { key: `gap-${i}`, className: 'page-gap', 'aria-hidden': 'true' }, '…')
+          : createElement('li', { key: `p${entry}` }, pageButton(entry, String(entry), `Page ${entry}`, false, entry === result.page)),
+      ),
+      createElement('li', { key: 'next' }, pageButton(result.page + 1, 'Next ›', 'Next page', result.page >= result.pageCount)),
+    ),
+    createElement('p', { className: 'grid-selection' },
+      `${selected.size} selected`,
+      createElement('button', {
+        id: `${id}-clear-selection`, type: 'button', className: 'btn btn--ghost', 'aria-disabled': String(selected.size === 0),
+        onClick: () => {
+          if (selected.size === 0) return;
+          setSelected(new Set());
+          setAnnouncement('Selection cleared');
+        },
+      }, 'Clear selection'),
+    ),
+  );
+
   return [
+    toolbar,
+    createElement('p', { id: `${id}-summary`, className: 'grid-summary', role: 'status' }, summary),
     createElement('p', { id: `${id}-status`, className: 'grid-status', role: 'status' }, announcement),
     createElement('section', { className: 'grid-scroll' },
       createElement('table', {
@@ -162,5 +267,20 @@ export function DataGrid<T>(props: DataGridProps<T> & { readonly id: string }): 
     ),
     createElement('p', { id: `${id}-help`, className: 'grid-help' },
       'Use arrow keys to move between cells, Home and End for the row start and end, Ctrl+Home and Ctrl+End for the first and last cell, Page Up and Page Down to change page. Enter opens a row, Space selects or deselects it.'),
+    pagination,
   ];
+}
+
+/** Page buttons to show: all when few, otherwise first, last and a window around the current page. */
+export function pageWindow(page: number, pageCount: number): readonly (number | 'gap')[] {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, i) => i + 1);
+  const pages = new Set([1, pageCount, page - 1, page, page + 1].filter((p) => p >= 1 && p <= pageCount));
+  const sorted = [...pages].sort((a, b) => a - b);
+  const out: (number | 'gap')[] = [];
+  sorted.forEach((p, i) => {
+    const prev = sorted[i - 1];
+    if (prev !== undefined && p - prev > 1) out.push('gap');
+    out.push(p);
+  });
+  return out;
 }

@@ -133,7 +133,7 @@ describe('DataGrid: sorting', () => {
     const button = $<HTMLButtonElement>('#g-r0-c0');
     button.focus();
     button.click();
-    expect($('[role="status"]').textContent).toBe('Sorted by Name, ascending');
+    expect($('#g-status').textContent).toBe('Sorted by Name, ascending');
     expect(document.activeElement).toBe(button);
   });
 
